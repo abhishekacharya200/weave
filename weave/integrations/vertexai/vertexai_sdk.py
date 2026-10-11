@@ -98,10 +98,17 @@ def vertexai_on_finish(
     summary_update = {"usage": usage}
     if output:
         call.output = dictify(output)
+        completion_tokens = output.usage_metadata.candidates_token_count
+        # Gemini bills thinking tokens as output, so count them for costing
+        thoughts_token_count = getattr(
+            output.usage_metadata, "thoughts_token_count", None
+        )
+        if thoughts_token_count:
+            completion_tokens = (completion_tokens or 0) + thoughts_token_count
         usage[model_name].update(
             {
                 "prompt_tokens": output.usage_metadata.prompt_token_count,
-                "completion_tokens": output.usage_metadata.candidates_token_count,
+                "completion_tokens": completion_tokens,
                 "total_tokens": output.usage_metadata.total_token_count,
             }
         )

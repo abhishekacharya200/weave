@@ -123,12 +123,16 @@ def google_genai_gemini_on_finish(
             "completion_tokens": output.usage_metadata.candidates_token_count,
             "total_tokens": output.usage_metadata.total_token_count,
         }
-        # Include thoughts_tokens if available (for thinking models)
+        # Include thoughts_tokens if available (for thinking models). Gemini bills
+        # thinking tokens as output, so count them in completion_tokens for costing.
         thoughts_token_count = getattr(
             output.usage_metadata, "thoughts_token_count", None
         )
         if thoughts_token_count is not None:
             usage_data["thoughts_tokens"] = thoughts_token_count
+            usage_data["completion_tokens"] = (
+                usage_data["completion_tokens"] or 0
+            ) + thoughts_token_count
         # Map Google's cached_content_token_count to canonical name
         cached_content_token_count = getattr(
             output.usage_metadata, "cached_content_token_count", None

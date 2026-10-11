@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 
 from weave.integrations.integration_utilities import op_name_from_ref
@@ -181,3 +183,31 @@ async def test_chat_session_async(client):
     assert output["candidates"][0]["content"]["role"] == "model"
     assert output["candidates"][0]["finish_reason"] == "STOP"
     assert "gemini-1.5-flash" in output["model_version"]
+
+
+@pytest.mark.parametrize(
+    ("thoughts_token_count", "expected_completion_tokens"),
+    [(300, 302), (None, 2)],
+)
+def test_thoughts_tokens_counted_as_completion_tokens(
+    thoughts_token_count, expected_completion_tokens
+):
+    from unittest.mock import Mock
+
+    from weave.integrations.vertexai.vertexai_sdk import vertexai_on_finish
+
+    call = Mock()
+    call.inputs = {"model_name": "publishers/google/models/gemini-2.5-flash"}
+    call.summary = {}
+    output = Mock()
+    output.usage_metadata.prompt_token_count = 10
+    output.usage_metadata.candidates_token_count = 2
+    output.usage_metadata.total_token_count = 12 + (thoughts_token_count or 0)
+    output.usage_metadata.thoughts_token_count = thoughts_token_count
+
+    with patch("weave.integrations.vertexai.vertexai_sdk.dictify", return_value={}):
+        vertexai_on_finish(call, output, None)
+
+    usage = call.summary["usage"]["gemini-2.5-flash"]
+    assert usage["prompt_tokens"] == 10
+    assert usage["completion_tokens"] == expected_completion_tokens
